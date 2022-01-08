@@ -41,49 +41,89 @@ func NewPinboardClient() (*PinboardClient, error) {
 	return &PinboardClient{key}, nil
 }
 
+type Result [K any]struct {
+	Value K
+	Error error
+}
+
 /*
  * Fetch all bookmarks from Pinboard
  *
  */
-func (pin *PinboardClient) GetBookmarks() (PinboardResponse, error) {
-	start := 0
-	offset := PINBOARD_OFFSET_SIZE
+func (pin *PinboardClient) GetBookmarks() chan Result[*Bookmark] {
+	result := make(chan Result[*Bookmark])
 
-	url := "https://api.pinboard.in/v1/posts/all?start=" + fmt.Sprint(start) + "&results=" + fmt.Sprint(offset) + "&format=json&auth_token=" + pin.key
+	go func(){
+		start := 0
+		offset := PINBOARD_OFFSET_SIZE
+		url := "https://api.pinboard.in/v1/posts/all?start=" + fmt.Sprint(start) + "&results=" + fmt.Sprint(offset) + "&format=json&auth_token=" + pin.key
 
-	var bookmarks PinboardResponse
+		var bookmarks PinboardResponse
 
-	for {
-		res, err := http.Get(url)
-		if err != nil {
-			return nil, err
+		for {
+			res, err := http.Get(url)
+			if err != nil {
+				result <- Result[*Bookmark]{
+					Value: nil,
+					Error: err,
+				}
+
+				return
+			}
+
+			start += offset
+			body, err := ioutil.ReadAll(res.Body)
+
+			if res.StatusCode == 429 {
+				result <- Result[*Bookmark]{
+					Value: nil,
+					Error: errors.New("too_many_requests: " + string(body)),
+				}
+
+				return
+
+			} else if res.StatusCode != 200 {
+				result <- Result[*Bookmark]{
+					Value: nil,
+					Error: errors.New("bad_response: " + string(body)),
+				}
+
+				return
+			}
+
+			if err != nil {
+				result <- Result[*Bookmark]{
+					Value: nil,
+					Error: err,
+				}
+
+				return
+			}
+
+			var data PinboardResponse
+			err = json.Unmarshal(body, &data)
+			if err != nil {
+				result <- Result[*Bookmark]{
+					Value: nil,
+					Error: err,
+				}
+
+				return
+			}
+
+			if len(data) == 0 {
+				break
+			}
+
+			for _, bookmark := range bookmarks {
+				fmt.Println(bookmark)
+				result <- Result[*Bookmark]{
+					Value: &bookmark,
+					Error: nil,
+				}
+			}
 		}
+	}()
 
-		start += offset
-		body, err := ioutil.ReadAll(res.Body)
-
-		if res.StatusCode == 429 {
-			return nil, errors.New("too_many_requests: " + string(body))
-		} else if res.StatusCode != 200 {
-			return nil, errors.New("bad_response: " + string(body))
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		var data PinboardResponse
-		err = json.Unmarshal(body, &data)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(data) == 0 {
-			break
-		}
-
-		bookmarks = append(bookmarks, data...)
-	}
-
-	return bookmarks, nil
+	return result
 }
