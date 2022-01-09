@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 )
 
 type CoppermindDb struct {
@@ -19,7 +18,6 @@ func NewCoppermindDb(fpath string) (*CoppermindDb, error) {
 }
 
 func (db *CoppermindDb) CreateTables() error {
-	// create a file table
 	tx, err := db.Db.Begin()
 	defer tx.Rollback()
 
@@ -30,13 +28,15 @@ func (db *CoppermindDb) CreateTables() error {
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS pinboard_bookmark (
 		description string,
 		extended    string,
-		hash        string,
-		href        string,
+		hash        string NOT NULL,
+		href        string NOT NULL,
 		meta        string,
 		shared      string,
 		tags        string,
 		time        string,
-		toread      string
+		toread      string,
+
+		PRIMARY KEY(hash)
 	)`)
 
 	if err != nil {
@@ -51,15 +51,27 @@ func (db *CoppermindDb) CreateTables() error {
 	return nil
 }
 
-func (db *CoppermindDb) InsertBookmark(tx *sql.Tx, bookmark *Bookmark) error {
-	fmt.Println(bookmark)
-	_, err := tx.Exec(`
-	INSERT OR IGNORE INTO pinboard_bookmarks (description, extended, hash, href, meta, shared, tags, time, toread) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, bookmark.Description, bookmark.Extended, bookmark.Hash, bookmark.Href, bookmark.Meta, bookmark.Shared, bookmark.Tags, bookmark.Time, bookmark.Toread)
+func (db *CoppermindDb) DropBookmarks() error {
+	tx, _ := db.Db.Begin()
+	defer tx.Rollback()
+
+	_, err := tx.Exec("DELETE FROM pinboard_bookmark")
 
 	if err != nil {
 		return err
 	}
 
 	return tx.Commit()
+}
+
+func (db *CoppermindDb) InsertBookmark(tx *sql.Tx, bookmark *Bookmark) error {
+	_, err := tx.Exec(`
+	INSERT OR REPLACE INTO pinboard_bookmark (description, extended, hash, href, meta, shared, tags, time, toread) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, bookmark.Description, bookmark.Extended, bookmark.Hash, bookmark.Href, bookmark.Meta, bookmark.Shared, bookmark.Tags, bookmark.Time, bookmark.Toread)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

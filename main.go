@@ -5,9 +5,7 @@ import (
 )
 
 func main() {
-	err := Coppermind()
-
-	if err != nil {
+	if err := Coppermind(); err != nil {
 		panic(err)
 	}
 }

@@ -56,12 +56,11 @@ func (pin *PinboardClient) GetBookmarks() chan Result[*Bookmark] {
 	go func(){
 		start := 0
 		offset := PINBOARD_OFFSET_SIZE
-		url := "https://api.pinboard.in/v1/posts/all?start=" + fmt.Sprint(start) + "&results=" + fmt.Sprint(offset) + "&format=json&auth_token=" + pin.key
-
-		var bookmarks PinboardResponse
 
 		for {
+			url := "https://api.pinboard.in/v1/posts/all?start=" + fmt.Sprint(start) + "&results=" + fmt.Sprint(offset) + "&format=json&auth_token=" + pin.key
 			res, err := http.Get(url)
+
 			if err != nil {
 				result <- Result[*Bookmark]{
 					Value: nil,
@@ -112,11 +111,11 @@ func (pin *PinboardClient) GetBookmarks() chan Result[*Bookmark] {
 			}
 
 			if len(data) == 0 {
+				close(result)
 				break
 			}
 
-			for _, bookmark := range bookmarks {
-				fmt.Println(bookmark)
+			for _, bookmark := range data {
 				result <- Result[*Bookmark]{
 					Value: &bookmark,
 					Error: nil,

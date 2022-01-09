@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -18,22 +17,25 @@ func StorePinboardBookmarks(db *CoppermindDb) error {
 		return err
 	}
 
+	err = db.DropBookmarks()
+	if err != nil {
+		return err
+	}
+
 	tx, _ := db.Db.Begin()
 
 	for result := range bookmarkResults {
-		fmt.Println(result)
-		err := result.Error
-		bookmark := result.Value
-
-		if err != nil {
+		if result.Error != nil {
 			return err
 		}
 
-		err = db.InsertBookmark(tx, bookmark)
-
-		if err != nil {
+		if err = db.InsertBookmark(tx, result.Value); err != nil {
 			return err
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil
