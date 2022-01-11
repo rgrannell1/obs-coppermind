@@ -1,4 +1,4 @@
-module github.com/rgrannell1/coppermind/v2
+module github.com/rgrannell1/coppermind
 
 go 1.18
 

@@ -1,4 +1,4 @@
-package main
+package coppermind
 
 import (
 	"database/sql"
@@ -9,7 +9,8 @@ type CoppermindDb struct {
 }
 
 func NewCoppermindDb(fpath string) (*CoppermindDb, error) {
-	db, err := sql.Open("sqlite3", fpath)
+	db, err := sql.Open("sqlite3", "file:"+fpath+"?_foreign_keys=true&_busy_timeout=5000&_journal_mode=WAL")
+
 	if err != nil {
 		return &CoppermindDb{}, err
 	}
