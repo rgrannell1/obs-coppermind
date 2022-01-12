@@ -8,7 +8,21 @@ import (
 func StorePinboardBookmarks(db *CoppermindDb) error {
 	pb, err := NewPinboardClient()
 	if err != nil {
-		panic(err)
+		return err
+	}
+
+	lastUpdate, err := pb.GetLastUpdate()
+	if err != nil {
+		return err
+	}
+
+	changed, err := db.PinboardChanged(lastUpdate)
+	if err != nil {
+		return err
+	}
+
+	if !changed {
+		return nil
 	}
 
 	bookmarkResults := pb.GetBookmarks()
@@ -38,7 +52,7 @@ func StorePinboardBookmarks(db *CoppermindDb) error {
 		return err
 	}
 
-	return nil
+	return db.UpdateLastUpdated(lastUpdate)
 }
 
 func Coppermind() error {

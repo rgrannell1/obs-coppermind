@@ -25,7 +25,11 @@ type Bookmark struct {
 	Toread      string `json:"toread"`
 }
 
-type PinboardResponse []Bookmark
+type PinboardBookmarksResponse []Bookmark
+
+type PinboardLastUpdateResponse struct {
+	UpdateTime string `json:"update_time"`
+}
 
 /*
  * Construct a Pinboard client
@@ -44,6 +48,28 @@ func NewPinboardClient() (*PinboardClient, error) {
 type Result [K any]struct {
 	Value K
 	Error error
+}
+
+func (pin *PinboardClient) GetLastUpdate() (string, error) {
+	url := "https://api.pinboard.in/v1/posts/update?format=json&auth_token="+ pin.key
+	res, err := http.Get(url)
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if res.StatusCode == 429 {
+		err = errors.New("too_many_requests: " + string(body))
+	} else if res.StatusCode != 200 {
+		err = errors.New("bad_status_code: " + string(body))
+	} else {
+		err = nil
+	}
+
+	var data PinboardLastUpdateResponse
+	err = json.Unmarshal(body, &data)
+
+	return data.UpdateTime, err
 }
 
 /*
@@ -99,7 +125,7 @@ func (pin *PinboardClient) GetBookmarks() chan Result[*Bookmark] {
 				return
 			}
 
-			var data PinboardResponse
+			var data PinboardBookmarksResponse
 			err = json.Unmarshal(body, &data)
 			if err != nil {
 				result <- Result[*Bookmark]{

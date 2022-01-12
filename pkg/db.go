@@ -2,6 +2,8 @@ package coppermind
 
 import (
 	"database/sql"
+
+	"github.com/pkg/errors"
 )
 
 type CoppermindDb struct {
@@ -41,7 +43,18 @@ func (db *CoppermindDb) CreateTables() error {
 	)`)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed creating pinboard_bookmark")
+	}
+
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS kv_metadata (
+		key string,
+		value string,
+
+		PRIMARY KEY(key)
+	)`)
+
+	if err != nil {
+		return errors.Wrap(err, "failed creating kv_metadata")
 	}
 
 	err = tx.Commit()
@@ -59,7 +72,7 @@ func (db *CoppermindDb) DropBookmarks() error {
 	_, err := tx.Exec("DELETE FROM pinboard_bookmark")
 
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed deleting from pinboard")
 	}
 
 	return tx.Commit()
@@ -70,9 +83,51 @@ func (db *CoppermindDb) InsertBookmark(tx *sql.Tx, bookmark *Bookmark) error {
 	INSERT OR REPLACE INTO pinboard_bookmark (description, extended, hash, href, meta, shared, tags, time, toread) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, bookmark.Description, bookmark.Extended, bookmark.Hash, bookmark.Href, bookmark.Meta, bookmark.Shared, bookmark.Tags, bookmark.Time, bookmark.Toread)
 
+	return err
+}
+
+func (db *CoppermindDb) UpdateLastUpdated(lastUpdate string) error {
+	tx, _ := db.Db.Begin()
+	defer tx.Rollback()
+
+	_, err := tx.Exec(`
+	INSERT OR REPLACE INTO kv_metadata (key, value) VALUES ("lastUpdated", ?)
+	`, lastUpdate)
+
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed updating metadata")
 	}
 
-	return nil
+	return tx.Commit()
+}
+
+/*
+ * Get last updated date for pinboard from database
+ */
+func (db *CoppermindDb) GetLastUpdated() (string, error) {
+	row := db.Db.QueryRow(`SELECT value from kv_metadata WHERE key = "lastUpdated"`)
+
+	var value string
+
+	switch err := row.Scan(&value); err {
+	case sql.ErrNoRows:
+		return "", nil
+	case nil:
+		return value, nil
+	default:
+		return "", errors.Wrap(err, "failed selecting lastUpdated")
+	}
+}
+
+/*
+ * Has pinboard changed, based on a stored update value?
+ */
+func (db *CoppermindDb) PinboardChanged(lastChanged string) (bool, error) {
+	stored, err := db.GetLastUpdated()
+
+	if err != nil {
+		return false, err
+	}
+
+	return stored != lastChanged, nil
 }
