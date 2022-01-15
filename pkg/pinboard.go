@@ -52,6 +52,7 @@ type Result [K any]struct {
 
 func (pin *PinboardClient) GetLastUpdate() (string, error) {
 	url := "https://api.pinboard.in/v1/posts/update?format=json&auth_token="+ pin.key
+
 	res, err := http.Get(url)
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {

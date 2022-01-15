@@ -39,7 +39,7 @@ func (db *CoppermindDb) CreateTables() error {
 		time        string,
 		toread      string,
 
-		PRIMARY KEY(hash, time)
+		PRIMARY KEY(href)
 	)`)
 
 	if err != nil {
