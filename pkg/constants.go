@@ -1,3 +1,4 @@
 package coppermind
 
 const PINBOARD_OFFSET_SIZE = 50
+const PINBOARD_KEY_VARIABLE = "PINBOARD_API_KEY"
