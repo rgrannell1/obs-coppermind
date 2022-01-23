@@ -79,14 +79,25 @@ func (db *CoppermindDb) DropBookmarks() error {
 	return tx.Commit()
 }
 
-func (db *CoppermindDb) InsertBookmark(tx *sql.Tx, bookmark *Bookmark) error {
-	_, err := tx.Exec(`
+func (db *CoppermindDb) InsertBookmark(bookmark Bookmark) error {
+	tx, err := db.Db.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
 	INSERT OR REPLACE INTO pinboard_bookmark (description, extended, hash, href, meta, shared, tags, time, toread) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, bookmark.Description, bookmark.Extended, bookmark.Hash, bookmark.Href, bookmark.Meta, bookmark.Shared, bookmark.Tags, bookmark.Time, bookmark.Toread)
+	if err != nil {
+		return err
+	}
 
-	return err
+	return tx.Commit()
 }
 
+/*
+ *
+ */
 func (db *CoppermindDb) UpdateLastUpdated(lastUpdate string) error {
 	tx, _ := db.Db.Begin()
 	defer tx.Rollback()

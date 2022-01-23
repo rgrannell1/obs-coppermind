@@ -11,45 +11,41 @@ func StorePinboardBookmarks(db *CoppermindDb) error {
 		return err
 	}
 
+	// retreive pinboard last-update time
 	lastUpdate, err := pb.GetLastUpdate()
 	if err != nil {
 		return err
 	}
 
+	// check whether pinboard has new bookmarks
 	changed, err := db.PinboardChanged(lastUpdate)
 	if err != nil {
 		return err
 	}
 
+	// bookmarks are the same as last run, so
+	// no updates are required
 	if !changed {
 		return nil
 	}
 
+	// drop existing bookmarks
+	if err = db.DropBookmarks(); err != nil {
+		return err
+	}
+
+	// enumerate through bookmarks from pinboard, and
+	// insert each into the database
 	bookmarkResults := pb.GetBookmarks()
 
-	if err != nil {
-		return err
-	}
-
-	err = db.DropBookmarks()
-	if err != nil {
-		return err
-	}
-
-	tx, _ := db.Db.Begin()
-
 	for result := range bookmarkResults {
-		if result.Error != nil {
+		if err := result.Error; err != nil {
 			return err
 		}
 
-		if err = db.InsertBookmark(tx, result.Value); err != nil {
+		if err = db.InsertBookmark(result.Value); err != nil {
 			return err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
 	}
 
 	return db.UpdateLastUpdated(lastUpdate)

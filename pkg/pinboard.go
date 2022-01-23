@@ -77,74 +77,63 @@ func (pin *PinboardClient) GetLastUpdate() (string, error) {
  * Fetch all bookmarks from Pinboard
  *
  */
-func (pin *PinboardClient) GetBookmarks() chan Result[*Bookmark] {
-	result := make(chan Result[*Bookmark])
+func (pin *PinboardClient) GetBookmarks() chan *Result[Bookmark] {
+	result := make(chan *Result[Bookmark])
+
+	// return an error result
+	resultErr := func (err error) *Result[Bookmark] {
+		return &Result[Bookmark]{
+			Value: Bookmark{},
+			Error: err,
+		}
+	}
 
 	go func(){
 		start := 0
 		offset := PINBOARD_OFFSET_SIZE
+
+		defer close(result)
 
 		for {
 			url := "https://api.pinboard.in/v1/posts/all?start=" + fmt.Sprint(start) + "&results=" + fmt.Sprint(offset) + "&format=json&auth_token=" + pin.key
 			res, err := http.Get(url)
 
 			if err != nil {
-				result <- Result[*Bookmark]{
-					Value: nil,
-					Error: err,
-				}
-
+				result <- resultErr(err)
 				return
 			}
 
 			start += offset
 			body, err := ioutil.ReadAll(res.Body)
-
-			if res.StatusCode == 429 {
-				result <- Result[*Bookmark]{
-					Value: nil,
-					Error: errors.New("too_many_requests: " + string(body)),
-				}
-
-				return
-
-			} else if res.StatusCode != 200 {
-				result <- Result[*Bookmark]{
-					Value: nil,
-					Error: errors.New("bad_response: " + string(body)),
-				}
-
+			if err != nil {
+				result <- resultErr(err)
 				return
 			}
 
-			if err != nil {
-				result <- Result[*Bookmark]{
-					Value: nil,
-					Error: err,
-				}
-
+			//  return errors for atypical responses
+			if res.StatusCode == 429 {
+				result <- resultErr(errors.New("too_many_requests: " + string(body)))
+				return
+			} else if res.StatusCode != 200 {
+				result <- resultErr(errors.New("bad_response: " + string(body)))
 				return
 			}
 
 			var data PinboardBookmarksResponse
 			err = json.Unmarshal(body, &data)
 			if err != nil {
-				result <- Result[*Bookmark]{
-					Value: nil,
-					Error: err,
-				}
-
+				result <- resultErr(err)
 				return
 			}
 
+			// if not bookmarks were returned, break this goroutine
 			if len(data) == 0 {
-				close(result)
-				break
+				return
 			}
 
 			for _, bookmark := range data {
-				result <- Result[*Bookmark]{
-					Value: &bookmark,
+				result <- &Result[Bookmark]{
+					Value: bookmark,
 					Error: nil,
 				}
 			}
