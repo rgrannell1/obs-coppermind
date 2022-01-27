@@ -76,5 +76,10 @@ func Coppermind() error {
 		panic(err)
 	}
 
+	err = StoreGithubStars(db)
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
