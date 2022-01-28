@@ -2,6 +2,7 @@ package coppermind
 
 import (
 	"database/sql"
+	"encoding/json"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
@@ -58,6 +59,21 @@ func (db *CoppermindDb) CreateTables() error {
 		return errors.Wrap(err, "failed creating kv_metadata")
 	}
 
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS github_star (
+		name        string not null,
+		description string,
+		login       string,
+		url         string,
+		language    string,
+		topics      string,
+
+		PRIMARY KEY(name)
+	)`)
+
+	if err != nil {
+		return errors.Wrap(err, "failed creating kv_metadata")
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -88,6 +104,27 @@ func (db *CoppermindDb) InsertBookmark(bookmark Bookmark) error {
 	_, err = tx.Exec(`
 	INSERT OR REPLACE INTO pinboard_bookmark (description, extended, hash, href, meta, shared, tags, time, toread) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, bookmark.Description, bookmark.Extended, bookmark.Hash, bookmark.Href, bookmark.Meta, bookmark.Shared, bookmark.Tags, bookmark.Time, bookmark.Toread)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (db *CoppermindDb) InsertStar(star *StarredRepository) error {
+	tx, err := db.Db.Begin()
+	if err != nil {
+		return err
+	}
+
+	topics, err := json.Marshal(star.Topics)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+	INSERT OR REPLACE INTO github_star (name, description, login, url, language, topics) VALUES (?, ?, ?, ?, ?, ?)
+	`, star.FullName, star.Description, star.Login, star.Url, star.Language, string(topics))
 	if err != nil {
 		return err
 	}

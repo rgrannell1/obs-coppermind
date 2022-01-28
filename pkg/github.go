@@ -8,10 +8,23 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type StarredRepository struct {
+	FullName    string
+	Description string
+	Login       string
+	Url         string
+	Language    string
+	Topics      []string
+}
+
 type GithubClient struct {
 	client *github.Client
 }
 
+/*
+ * Construct a github client
+ *
+ */
 func NewClient() *GithubClient {
 	GITHUB_STAR_KEY := os.Getenv("GITHUB_STAR_KEY")
 
@@ -25,42 +38,64 @@ func NewClient() *GithubClient {
 	}
 }
 
-func (gh *GithubClient) ListStarred() ([]*github.StarredRepository, error) {
-	repos, _, err := gh.client.Activity.ListStarred(context.Background(), "", nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return repos, nil
-}
-
-type StarredRepository struct {
-	FullName    string
-	Description string
-}
-
+/*
+ * Store github stars in the diatom database
+ *
+ */
 func StoreGithubStars(db *CoppermindDb) error {
 	client := NewClient()
-	starred, err := client.ListStarred()
-	if err != nil {
-		return err
-	}
+	page := 0
 
-	for _, repo := range starred {
-		data := StarredRepository{}
+	//enumerate through pages
+	for {
+		page++
 
-		name := repo.Repository.FullName
-		description := repo.Repository.Description
-
-		if name != nil {
-			data.FullName = *name
+		// list results from this page
+		starred, _, err := client.client.Activity.ListStarred(context.Background(), "", &github.ActivityListStarredOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 10,
+				Page:    page,
+			},
+		})
+		if err != nil {
+			return err
 		}
 
-		if description != nil {
-			data.Description = *description
+		// break when all are enumerated
+		if len(starred) == 0 {
+			break
 		}
 
+		// store each repository
+		for _, repo := range starred {
+			data := StarredRepository{}
+
+			name := repo.Repository.FullName
+			description := repo.Repository.Description
+			data.Login = *repo.Repository.Owner.Login
+			data.Url = *repo.Repository.URL
+			data.Topics = repo.Repository.Topics
+
+			language := repo.Repository.Language
+			if language != nil {
+				data.Language = *language
+			}
+
+			if name != nil {
+				data.FullName = *name
+			}
+
+			if description != nil {
+				data.Description = *description
+			}
+
+			// -- TODO
+
+			err := db.InsertStar(&data)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
