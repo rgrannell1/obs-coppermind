@@ -73,7 +73,7 @@ func StoreGithubStars(db *CoppermindDb) error {
 			name := repo.Repository.FullName
 			description := repo.Repository.Description
 			data.Login = *repo.Repository.Owner.Login
-			data.Url = *repo.Repository.URL
+			data.Url = *repo.Repository.HTMLURL
 			data.Topics = repo.Repository.Topics
 
 			language := repo.Repository.Language
