@@ -38,12 +38,40 @@ func NewClient() *GithubClient {
 	}
 }
 
+func CountGithubStars(client *GithubClient) (int, error) {
+	_, res, err := client.client.Activity.ListStarred(context.Background(), "", &github.ActivityListStarredOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 1,
+		},
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return res.LastPage, nil
+}
+
 /*
  * Store github stars in the diatom database
  *
  */
 func StoreGithubStars(db *CoppermindDb) error {
 	client := NewClient()
+	stars, err := CountGithubStars(client)
+	if err != nil {
+		return err
+	}
+
+	changed, err := db.GithubChanged(stars)
+	if err != nil {
+		return err
+	}
+
+	if !changed {
+		return nil
+	}
+
 	page := 0
 
 	//enumerate through pages
@@ -96,6 +124,11 @@ func StoreGithubStars(db *CoppermindDb) error {
 				return err
 			}
 		}
+	}
+
+	err = db.UpdateStarCount(stars)
+	if err != nil {
+		return err
 	}
 
 	return nil

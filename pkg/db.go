@@ -180,3 +180,47 @@ func (db *CoppermindDb) PinboardChanged(lastChanged string) (bool, error) {
 
 	return stored != lastChanged, nil
 }
+
+func (db *CoppermindDb) GetStoredStarCount() (int, error) {
+	row := db.Db.QueryRow(`SELECT value from kv_metadata WHERE key = "starCount"`)
+	var value int
+
+	switch err := row.Scan(&value); err {
+	case sql.ErrNoRows:
+		return 0, nil
+	case nil:
+		return value, nil
+	default:
+		return 0, errors.Wrap(err, "failed selecting starCount")
+	}
+}
+
+/*
+ * Has the number of github stars changed, based on a stored update value?
+ */
+func (db *CoppermindDb) GithubChanged(stars int) (bool, error) {
+	stored, err := db.GetStoredStarCount()
+	if err != nil {
+		return false, err
+	}
+
+	return stored != stars, nil
+}
+
+/*
+ *
+ */
+func (db *CoppermindDb) UpdateStarCount(stars int) error {
+	tx, _ := db.Db.Begin()
+	defer tx.Rollback()
+
+	_, err := tx.Exec(`
+	INSERT OR REPLACE INTO kv_metadata (key, value) VALUES ("starCount", ?)
+	`, stars)
+
+	if err != nil {
+		return errors.Wrap(err, "failed updating metadata")
+	}
+
+	return tx.Commit()
+}
