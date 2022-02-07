@@ -54,6 +54,14 @@ func (pin *PinboardClient) GetLastUpdate() (string, error) {
 	updateUrl := "https://api.pinboard.in/v1/posts/update?format=json&auth_token="+ pin.key
 
 	res, err := http.Get(updateUrl)
+	if err != nil {
+		return "", err
+	}
+
+	if res.Body == nil {
+		return "", errors.New("response body is null")
+	}
+
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return "", err

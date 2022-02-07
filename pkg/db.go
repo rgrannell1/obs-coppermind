@@ -200,6 +200,7 @@ func (db *CoppermindDb) GetStoredStarCount() (int, error) {
  */
 func (db *CoppermindDb) GithubChanged(stars int) (bool, error) {
 	stored, err := db.GetStoredStarCount()
+
 	if err != nil {
 		return false, err
 	}
